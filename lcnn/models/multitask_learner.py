@@ -14,7 +14,7 @@ class MultitaskHead(nn.Module):
 
         m = int(input_channels / 4)
         heads = []
-        for output_channels in sum(M.head_size, []):
+        for output_channels in sum([[2], [1], [2]], []):
             heads.append(
                 nn.Sequential(
                     nn.Conv2d(input_channels, m, kernel_size=3, padding=1),
@@ -23,7 +23,7 @@ class MultitaskHead(nn.Module):
                 )
             )
         self.heads = nn.ModuleList(heads)
-        assert num_class == sum(sum(M.head_size, []))
+        assert num_class == sum(sum([[2], [1], [2]], []))
 
     def forward(self, x):
         return torch.cat([head(x) for head in self.heads], dim=1)
@@ -33,7 +33,7 @@ class MultitaskLearner(nn.Module):
     def __init__(self, backbone):
         super(MultitaskLearner, self).__init__()
         self.backbone = backbone
-        head_size = M.head_size
+        head_size = [[2], [1], [2]]  # M.head_size
         self.num_class = sum(sum(head_size, []))
         self.head_off = np.cumsum([sum(h) for h in head_size])
 
@@ -53,7 +53,8 @@ class MultitaskLearner(nn.Module):
             T[task] = T[task].permute(1, 2, 0, 3, 4)
 
         offset = self.head_off
-        loss_weight = M.loss_weight
+        # loss_weight = M.loss_weight
+        loss_weight = {"jmap": 8.0, "lmap": 0.5, "joff": 0.25, "lpos": 1, "lneg": 1}
         losses = []
         for stack, output in enumerate(outputs):
             output = output.transpose(0, 1).reshape([-1, batch, row, col]).contiguous()

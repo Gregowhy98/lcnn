@@ -7,11 +7,15 @@ import random
 import numpy as np
 import numpy.linalg as LA
 import torch
+import yaml
 from skimage import io
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 
-from lcnn.config import M
+config_path = "config/wireframe.yaml"
+with open(config_path, "r") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+print(config)
 
 
 class WireframeDataset(Dataset):
@@ -32,7 +36,7 @@ class WireframeDataset(Dataset):
         image = io.imread(iname).astype(float)[:, :, :3]
         if "a1" in self.filelist[idx]:
             image = image[:, ::-1, :]
-        image = (image - M.image.mean) / M.image.stddev
+        image = (image - config["model"]["image"]["mean"]) / config["model"]["image"]["stddev"]
         image = np.rollaxis(image, 2).copy()
 
         # npz["jmap"]: [J, H, W]    Junction heat map
@@ -51,8 +55,8 @@ class WireframeDataset(Dataset):
                 name: torch.from_numpy(npz[name]).float()
                 for name in ["jmap", "joff", "lmap"]
             }
-            lpos = np.random.permutation(npz["lpos"])[: M.n_stc_posl]
-            lneg = np.random.permutation(npz["lneg"])[: M.n_stc_negl]
+            lpos = np.random.permutation(npz["lpos"])[: config["model"]["n_stc_posl"]]
+            lneg = np.random.permutation(npz["lneg"])[: config["model"]["n_stc_negl"]]
             npos, nneg = len(lpos), len(lneg)
             lpre = np.concatenate([lpos, lneg], 0)
             for i in range(len(lpre)):
@@ -61,8 +65,8 @@ class WireframeDataset(Dataset):
             ldir = lpre[:, 0, :2] - lpre[:, 1, :2]
             ldir /= np.clip(LA.norm(ldir, axis=1, keepdims=True), 1e-6, None)
             feat = [
-                lpre[:, :, :2].reshape(-1, 4) / 128 * M.use_cood,
-                ldir * M.use_slop,
+                lpre[:, :, :2].reshape(-1, 4) / 128 * config["model"]["use_cood"],
+                ldir * config["model"]["use_slop"],
                 lpre[:, :, 2],
             ]
             feat = np.concatenate(feat, 1)

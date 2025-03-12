@@ -6,6 +6,7 @@ import signal
 import subprocess
 import threading
 import time
+import yaml
 from timeit import default_timer as timer
 
 import matplotlib as mpl
@@ -16,8 +17,13 @@ import torch.nn.functional as F
 from skimage import io
 from tensorboardX import SummaryWriter
 
-from lcnn.config import C, M
 from lcnn.utils import recursive_to
+
+
+config_path = "config/wireframe.yaml"
+with open(config_path, "r") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+print(config)
 
 
 class Trainer(object):
@@ -29,9 +35,9 @@ class Trainer(object):
 
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.batch_size = C.model.batch_size
+        self.batch_size = config["model"]["batch_size"]
 
-        self.validation_interval = C.io.validation_interval
+        self.validation_interval = config["io"]["validation_interval"]
 
         self.out = out
         if not osp.exists(self.out):
@@ -42,9 +48,9 @@ class Trainer(object):
 
         self.epoch = 0
         self.iteration = 0
-        self.max_epoch = C.optim.max_epoch
-        self.lr_decay_epoch = C.optim.lr_decay_epoch
-        self.num_stacks = C.model.num_stacks
+        self.max_epoch = config["optim"]["max_epoch"]
+        self.lr_decay_epoch = config["optim"]["lr_decay_epoch"]
+        self.num_stacks = config["model"]["num_stacks"]
         self.mean_loss = self.best_mean_loss = 1e1000
 
         self.loss_labels = None
@@ -58,7 +64,7 @@ class Trainer(object):
         self.writer = SummaryWriter(board_out)
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
         p = subprocess.Popen(
-            ["tensorboard", f"--logdir={board_out}", f"--port={C.io.tensorboard_port}"]
+            ["tensorboard", f"--logdir={board_out}", f"--port={config['io']['tensorboard_port']}"]
         )
 
         def killme():
@@ -103,8 +109,8 @@ class Trainer(object):
         training = self.model.training
         self.model.eval()
 
-        viz = osp.join(self.out, "viz", f"{self.iteration * M.batch_size_eval:09d}")
-        npz = osp.join(self.out, "npz", f"{self.iteration * M.batch_size_eval:09d}")
+        viz = osp.join(self.out, "viz", f"{self.iteration * config['model']['batch_size_eval']:09d}")
+        npz = osp.join(self.out, "npz", f"{self.iteration * config['model']['batch_size_eval']:09d}")
         osp.exists(viz) or os.makedirs(viz)
         osp.exists(npz) or os.makedirs(npz)
 
@@ -124,7 +130,7 @@ class Trainer(object):
 
                 H = result["preds"]
                 for i in range(H["jmap"].shape[0]):
-                    index = batch_idx * M.batch_size_eval + i
+                    index = batch_idx * config["model"]["batch_size_eval"] + i
                     np.savez(
                         f"{npz}/{index:06}.npz",
                         **{k: v[i].cpu().numpy() for k, v in H.items()},
