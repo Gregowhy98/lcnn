@@ -4,9 +4,46 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import yaml
 
-from lcnn.config import M
+# from lcnn.config import M
 
+config_path = "config/wireframe.yaml"
+with open(config_path, "r") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+print(config)
+
+
+class FeatureMapNet(nn.Module):
+    def __init__(self):
+        super(FeatureMapNet, self).__init__()
+        self.conv1 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.upsample(x)
+        return x
+
+class DualMapNet(nn.Module):
+    def __init__(self):
+        super(DualMapNet, self).__init__()
+        self.conv1 = nn.Conv2d(65, 128, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
+        self.conv3_1 = nn.Conv2d(256, 5, kernel_size=3, stride=1, padding=1)
+        self.conv3_2 = nn.Conv2d(256, 5, kernel_size=3, stride=1, padding=1)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        out1 = self.conv3_1(x)
+        out2 = self.conv3_2(x)
+        out1 = self.upsample(out1)
+        out2 = self.upsample(out2)
+        return [out1, out2]
 
 class MultitaskHead(nn.Module):
     def __init__(self, input_channels, num_class):
@@ -33,13 +70,22 @@ class MultitaskLearner(nn.Module):
     def __init__(self, backbone):
         super(MultitaskLearner, self).__init__()
         self.backbone = backbone
+        self.ftmapnet = FeatureMapNet()
+        self.dualmapnet = DualMapNet()
         head_size = [[2], [1], [2]]  # M.head_size
         self.num_class = sum(sum(head_size, []))
         self.head_off = np.cumsum([sum(h) for h in head_size])
 
     def forward(self, input_dict):
         image = input_dict["image"]
-        outputs, feature = self.backbone(image)
+        xf_weight = config["xfeat"]["pretrain"]
+        self.backbone.load_state_dict(torch.load(xf_weight))
+        self.backbone.eval()
+        xf_output = self.backbone(image)
+        feature = self.ftmapnet(xf_output[0])
+        outputs = self.dualmapnet(xf_output[1])
+        
+        # outputs, feature = self.backbone(image)
         result = {"feature": feature}
         batch, channel, row, col = outputs[0].shape
 

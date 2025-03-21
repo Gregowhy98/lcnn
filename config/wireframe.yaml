@@ -1,6 +1,6 @@
 io:
   logdir: logs/
-  datadir: data/wireframe/
+  datadir: /home/wenhuanyao/Dataset/wireframe_lcnn
   pretrain: 
   device: cuda:0
   output: output/
@@ -70,3 +70,6 @@ optim:
   weight_decay: 1.0e-4
   max_epoch: 24
   lr_decay_epoch: 10
+
+xfeat:
+  pretrain: /home/wenhuanyao/lcnn/pretrained/xfeat_cityscapes_160k_trainingbase.pth

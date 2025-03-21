@@ -137,7 +137,7 @@ class Trainer(object):
                     )
                     if index >= 20:
                         continue
-                    self._plot_samples(i, index, H, meta, target, f"{viz}/{index:06}")
+                    # self._plot_samples(i, index, H, meta, target, f"{viz}/{index:06}")
 
         self._write_metrics(len(self.val_loader), total_loss, "validation", True)
         self.mean_loss = total_loss / len(self.val_loader)
