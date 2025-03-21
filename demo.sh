@@ -1,1 +1,0 @@
-python demo.py -d 0 config/wireframe.yaml '/home/wenhuanyao/lcnn/pretrained/190418-201834-f8934c6-lr4d10-312k.pth' '/home/wenhuanyao/lcnn/berlin_000003_000019_leftImg8bit.png'

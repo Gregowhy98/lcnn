@@ -47,50 +47,60 @@ def c(x):
 
 
 def main():
-    args = docopt(__doc__)
-    config_file = args["<yaml-config>"] or "config/wireframe.yaml"
-    C.update(C.from_yaml(filename=config_file))
-    M.update(C.model)
-    pprint.pprint(C, indent=4)
+    config_path = "config/wireframe.yaml"
+    with open(config_path, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    print(config)
 
-    random.seed(0)
-    np.random.seed(0)
-    torch.manual_seed(0)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # args = docopt(__doc__)
+    # config_file = args["<yaml-config>"] or "config/wireframe.yaml"
+    # C.update(C.from_yaml(filename=config_file))
+    # M.update(C.model)
+    # pprint.pprint(C, indent=4)
 
-    device_name = "cpu"
-    os.environ["CUDA_VISIBLE_DEVICES"] = args["--devices"]
-    if torch.cuda.is_available():
-        device_name = "cuda"
-        torch.backends.cudnn.deterministic = True
-        torch.cuda.manual_seed(0)
-        print("Let's use", torch.cuda.device_count(), "GPU(s)!")
-    else:
-        print("CUDA is not available")
-    device = torch.device(device_name)
-    checkpoint = torch.load(args["<checkpoint>"], map_location=device)
+    # random.seed(0)
+    # np.random.seed(0)
+    # torch.manual_seed(0)
+
+    checkpoint_path = "/home/wenhuanyao/lcnn/pretrained/190418-201834-f8934c6-lr4d10-312k.pth"
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
     # Load model
+    # model = lcnn.models.hg(
+    #     depth=config["model"]["depth"],
+    #     head=MultitaskHead,
+    #     num_stacks=config["model"]["num_stacks"],
+    #     num_blocks=config["model"]["num_blocks"],
+    #     num_classes=sum(sum(config["model"]["head_size"], [])),)
     model = lcnn.models.hg(
-        depth=M.depth,
+        depth=config["model"]["depth"],
         head=lambda c_in, c_out: MultitaskHead(c_in, c_out),
-        num_stacks=M.num_stacks,
-        num_blocks=M.num_blocks,
-        num_classes=sum(sum(M.head_size, [])),
-    )
+        num_stacks=config["model"]["num_stacks"],
+        num_blocks=config["model"]["num_blocks"],
+        num_classes=sum(sum(config["model"]["head_size"], [])),)
+    # model = lcnn.models.hg(
+    #     depth=M.depth,
+    #     head=lambda c_in, c_out: MultitaskHead(c_in, c_out),
+    #     num_stacks=M.num_stacks,
+    #     num_blocks=M.num_blocks,
+    #     num_classes=sum(sum(M.head_size, [])),
+    # )
     model = MultitaskLearner(model)
     model = LineVectorizer(model)
     model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
     model.eval()
 
-    for imname in args["<images>"]:
+    img_paths = ['/home/wenhuanyao/lcnn/demo_figs/berlin_000003_000019_leftImg8bit.png']
+    for imname in img_paths:
         print(f"Processing {imname}")
         im = skimage.io.imread(imname)
         if im.ndim == 2:
             im = np.repeat(im[:, :, None], 3, 2)
         im = im[:, :, :3]
         im_resized = skimage.transform.resize(im, (512, 512)) * 255
-        image = (im_resized - M.image.mean) / M.image.stddev
+        image = (im_resized - config["model"]["image"]["mean"])/config["model"]["image"]["stddev"]   #M.image.mean) / M.image.stddev
         image = torch.from_numpy(np.rollaxis(image, 2)[None].copy()).float()
         with torch.no_grad():
             input_dict = {
