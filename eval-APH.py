@@ -27,10 +27,10 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 from docopt import docopt
 
-mpl.rcParams.update({"font.size": 18})
-plt.rcParams["font.family"] = "Times New Roman"
-del mpl.font_manager.weight_dict["roman"]
-mpl.font_manager._rebuild()
+# mpl.rcParams.update({"font.size": 18})
+# plt.rcParams["font.family"] = "Times New Roman"
+# del mpl.font_manager.weight_dict["roman"]
+# mpl.font_manager._rebuild()
 
 image_path = "data/wireframe/valid-images/"
 line_gt_path = "data/wireframe/valid/"
@@ -38,9 +38,12 @@ output_size = 128
 
 
 def main():
-    args = docopt(__doc__)
-    src_dir = args["<src>"]
-    tar_dir = args["<dst>"]
+    # args = docopt(__doc__)
+    # src_dir = args["<src>"]
+    # tar_dir = args["<dst>"]
+    
+    src_dir = '/home/wenhuanyao/lcnn/output/npz/000072000'
+    tar_dir = '/home/wenhuanyao/lcnn/eval_output'
 
     output_file = osp.join(tar_dir, "result.mat")
     target_dir = osp.join(tar_dir, "mat")

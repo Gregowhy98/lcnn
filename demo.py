@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""Process an image with the trained neural network
-Usage:
-    demo.py [options] <yaml-config> <checkpoint> <images>...
-    demo.py (-h | --help )
-
-Arguments:
-   <yaml-config>                 Path to the yaml hyper-parameter file
-   <checkpoint>                  Path to the checkpoint
-   <images>                      Path to images
-
-Options:
-   -h --help                     Show this screen.
-   -d --devices <devices>        Comma seperated GPU devices [default: 0]
-"""
 
 import os
 import os.path as osp
@@ -26,14 +12,15 @@ import skimage.io
 import skimage.transform
 import torch
 import yaml
-from docopt import docopt
 
 import lcnn
-from lcnn.config import C, M
 from lcnn.models.line_vectorizer import LineVectorizer
-from lcnn.models.multitask_learner import MultitaskHead, MultitaskLearner
+
+
 from lcnn.postprocess import postprocess
 from lcnn.utils import recursive_to
+
+from xfeat.xfeatmodel import XFeatModel
 
 PLTOPTS = {"color": "#33FFFF", "s": 15, "edgecolors": "none", "zorder": 5}
 cmap = plt.get_cmap("jet")
@@ -50,49 +37,40 @@ def main():
     config_path = "config/wireframe.yaml"
     with open(config_path, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
-    print(config)
+    # print(config)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # args = docopt(__doc__)
-    # config_file = args["<yaml-config>"] or "config/wireframe.yaml"
-    # C.update(C.from_yaml(filename=config_file))
-    # M.update(C.model)
-    # pprint.pprint(C, indent=4)
-
-    # random.seed(0)
-    # np.random.seed(0)
-    # torch.manual_seed(0)
-
-    checkpoint_path = "/home/wenhuanyao/lcnn/pretrained/190418-201834-f8934c6-lr4d10-312k.pth"
-    checkpoint = torch.load(checkpoint_path, map_location=device)
 
     # Load model
-    # model = lcnn.models.hg(
-    #     depth=config["model"]["depth"],
-    #     head=MultitaskHead,
-    #     num_stacks=config["model"]["num_stacks"],
-    #     num_blocks=config["model"]["num_blocks"],
-    #     num_classes=sum(sum(config["model"]["head_size"], [])),)
-    model = lcnn.models.hg(
-        depth=config["model"]["depth"],
-        head=lambda c_in, c_out: MultitaskHead(c_in, c_out),
-        num_stacks=config["model"]["num_stacks"],
-        num_blocks=config["model"]["num_blocks"],
-        num_classes=sum(sum(config["model"]["head_size"], [])),)
-    # model = lcnn.models.hg(
-    #     depth=M.depth,
-    #     head=lambda c_in, c_out: MultitaskHead(c_in, c_out),
-    #     num_stacks=M.num_stacks,
-    #     num_blocks=M.num_blocks,
-    #     num_classes=sum(sum(M.head_size, [])),
-    # )
-    model = MultitaskLearner(model)
-    model = LineVectorizer(model)
+    model_flag = 'lcnn'
+    
+    if model_flag == 'lcnn':
+        from lcnn.models.multitask_learner_orig import MultitaskHead, MultitaskLearner
+        checkpoint_path = "/home/wenhuanyao/lcnn/pretrained/lcnn_pretrianed.pth"
+        model = lcnn.models.hg(
+            depth=config["model"]["depth"],
+            head=MultitaskHead,
+            num_stacks=config["model"]["num_stacks"],
+            num_blocks=config["model"]["num_blocks"],
+            num_classes=sum(sum(config["model"]["head_size"], [])),)
+        model = MultitaskLearner(model)
+        model = LineVectorizer(model)
+    
+    if model_flag == 'xfeat':
+        from lcnn.models.multitask_learner_new import MultitaskLearner
+        checkpoint_path = "/home/wenhuanyao/lcnn/pretrained/checkpoint_best.pth"
+        model = XFeatModel()
+        model = MultitaskLearner(model)
+        model = LineVectorizer(model)
+    
+    checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
+    
     model = model.to(device)
     model.eval()
 
     img_paths = ['/home/wenhuanyao/lcnn/demo_figs/berlin_000003_000019_leftImg8bit.png']
+    
     for imname in img_paths:
         print(f"Processing {imname}")
         im = skimage.io.imread(imname)
@@ -146,8 +124,8 @@ def main():
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
             plt.gca().yaxis.set_major_locator(plt.NullLocator())
             plt.imshow(im)
-            plt.savefig(imname.replace(".png", f"-{t:.02f}.svg"), bbox_inches="tight")
-            plt.show()
+            plt.savefig(imname.replace(".png", f"-{model_flag}-{t:.02f}.png"), bbox_inches="tight")
+            # plt.show()
             plt.close()
 
 

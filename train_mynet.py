@@ -11,7 +11,7 @@ import yaml
 import lcnn
 from lcnn.datasets import WireframeDataset, collate
 from lcnn.models.line_vectorizer import LineVectorizer
-from lcnn.models.multitask_learner import MultitaskHead, MultitaskLearner
+from lcnn.models.multitask_learner_new import MultitaskHead, MultitaskLearner
 
 from xfeat.xfeatmodel import XFeatModel
 from xfeat.utils import draw_keypoints_on_image, draw_scores_heatmap, visualize_descriptors
@@ -54,15 +54,6 @@ def main(config):
     
     # xfeat as model
     model = XFeatModel()
-    
-    # hourglass as model
-    # model = lcnn.models.hg(
-    #         depth=config["model"]["depth"],
-    #         head=MultitaskHead,
-    #         num_stacks=config["model"]["num_stacks"],
-    #         num_blocks=config["model"]["num_blocks"],
-    #         num_classes=sum(sum(config["model"]["head_size"], [])),)
-    
     model = MultitaskLearner(model)
     model = LineVectorizer(model)
 
